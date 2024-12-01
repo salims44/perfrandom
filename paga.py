@@ -6,7 +6,9 @@ import requests
 import secrets
 from flask import Flask
 from keep_alive import keep_alive
+import threading
 
+# Keep the web server alive
 keep_alive()
 
 app = Flask(__name__)
@@ -15,16 +17,14 @@ app = Flask(__name__)
 def hello_world():
     return 'Hello, World!'
 
-def send_to_discord(content):
-    webhook_url = 'https://discord.com/api/webhooks/1312712220194508872/_HqfkiKjdzQ2TRygoRxaZyzRNMDQ65YLTYPUvvsjSh1ElmXmsI8OMXfzJGXrUE3jqbNc'
-    data = {
-        "content": content
-    }
+# Webhook URL can be passed as an environment variable for better security
+DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1312712220194508872/_HqfkiKjdzQ2TRygoRxaZyzRNMDQ65YLTYPUvvsjSh1ElmXmsI8OMXfzJGXrUE3jqbNc'
 
+def send_to_discord(content):
+    data = {"content": content}
     try:
-        response = requests.post(webhook_url, json=data)
+        response = requests.post(DISCORD_WEBHOOK_URL, json=data)
         response.raise_for_status()
-        time.sleep(0.2)
     except requests.exceptions.RequestException as e:
         print(f"Error sending message to Discord: {e}")
 
@@ -41,25 +41,13 @@ def public_key_to_address(public_key):
     address = base58.b58encode(prepend_network_byte + checksum)
     return address.decode()
 
-def main():
-    target_pubkey = "02145d2611c823a396ef6712ce0f712f09b9b4f3135e3e0aa3230fb9b6d08d1e16"
-    target_address = "16RGFo6hjq9ym6Pj7N5H7L1NR1rVPJyw2v"
-
-    print(f"Starting random private key search within range")
-    send_to_discord(f"Starting random private key search within range")
-
-    start_time = time.time()
-
-    start = int("4000000000000000000000000000000000", 16)
-    end = int("7fffffffffffffffffffffffffffffffff", 16)
+# Optimizing private key search and splitting it into threads
+def search_for_private_key(start, end, target_pubkey, target_address):
+    print(f"Thread started searching from {start:x} to {end:x}")
 
     while True:
-        # generate 32-byte private key
         private_key = secrets.randbelow(end - start) + start  
-
-        # format private key to hexadecimal with leading zeros to make it 64 characters
         private_key_hex = f"{private_key:064x}"
-
         public_key = private_key_to_public_key(private_key)
         public_key_hex = public_key.hex()
 
@@ -79,7 +67,36 @@ def main():
                 send_to_discord(found_message)
                 break
 
-        time.sleep(0.005)
+# Main function now handles parallel searches
+def main():
+    target_pubkey = "02145d2611c823a396ef6712ce0f712f09b9b4f3135e3e0aa3230fb9b6d08d1e16"
+    target_address = "16RGFo6hjq9ym6Pj7N5H7L1NR1rVPJyw2v"
+    
+    print(f"Starting random private key search within range")
+    send_to_discord(f"Starting random private key search within range")
+
+    start_time = time.time()
+
+    start = int("4000000000000000000000000000000000", 16)
+    end = int("7fffffffffffffffffffffffffffffffff", 16)
+
+    # Split the range into multiple parts and run in parallel
+    num_threads = 4
+    thread_range = (end - start) // num_threads
+
+    threads = []
+    for i in range(num_threads):
+        thread_start = start + i * thread_range
+        thread_end = start + (i + 1) * thread_range if i < num_threads - 1 else end
+        thread = threading.Thread(target=search_for_private_key, args=(thread_start, thread_end, target_pubkey, target_address))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to finish
+    for thread in threads:
+        thread.join()
+
+    print(f"Total search time: {time.time() - start_time} seconds")
 
 if __name__ == "__main__":
     main()
