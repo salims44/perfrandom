@@ -18,7 +18,7 @@ def hello_world():
     return 'Hello, World!'
 
 # Webhook URL can be passed as an environment variable for better security
-DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1312712220194508872/_HqfkiKjdzQ2TRygoRxaZyzRNMDQ65YLTYPUvvsjSh1ElmXmsI8OMXfzJGXrUE3jqbNc'
+DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1313595983678017649/Bm06HRH4NMy16rBC8Qzae3Uk_tBdRwBlvHPXGZM2gqJWVPEpM4tqINfjjLMZeDZKK_f2'
 
 def send_to_discord(content):
     data = {"content": content}
